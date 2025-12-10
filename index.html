@@ -62,7 +62,27 @@
         border-radius: 3px;
         box-shadow: 0 0 10px #22d3ee;
       }
+      
+      #error-display {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: #000;
+        z-index: 9999;
+        color: red;
+        padding: 20px;
+        font-family: monospace;
+      }
     </style>
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      const el = document.getElementById('error-display');
+      if (el) {
+        el.style.display = 'block';
+        el.innerHTML = '<h1>System Error</h1><p>' + message + '</p><pre>' + (error ? error.stack : '') + '</pre>';
+      }
+    };
+  </script>
   <script type="importmap">
 {
   "imports": {
@@ -79,5 +99,6 @@
 </head>
   <body>
     <div id="root"></div>
+    <div id="error-display"></div>
   </body>
 </html>

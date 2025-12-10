@@ -221,8 +221,10 @@ function App() {
       const landmarks = results.multiHandLandmarks[0];
 
       // Draw hand skeleton - Futuristic Style
-      drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(34, 211, 238, 0.4)', lineWidth: 1 });
-      drawLandmarks(ctx, landmarks, { color: '#22d3ee', lineWidth: 1, radius: 2 });
+      if (typeof drawConnectors !== 'undefined' && typeof drawLandmarks !== 'undefined') {
+        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(34, 211, 238, 0.4)', lineWidth: 1 });
+        drawLandmarks(ctx, landmarks, { color: '#22d3ee', lineWidth: 1, radius: 2 });
+      }
 
       // Landmark indices: 8 = Index Tip, 4 = Thumb Tip
       const indexTip = landmarks[8];
@@ -351,14 +353,24 @@ function App() {
     let hands: any = null;
     let animationFrameId: number;
     let stream: MediaStream | null = null;
+    let retryCount = 0;
 
     const setupHands = async () => {
         // Initialize Camera
         if (videoRef.current) {
             try {
                 // Initial check for Hands library availability
+                // Use a retry mechanism instead of throwing immediate error
                 if (typeof Hands === 'undefined') {
-                    throw new Error("Mediapipe Hands library not loaded. Please check internet connection.");
+                     if (retryCount < 20) {
+                        retryCount++;
+                        setTimeout(setupHands, 500); // Retry every 500ms
+                        return;
+                     } else {
+                        console.error("Hands library timed out.");
+                        setAppState(AppState.ERROR);
+                        return;
+                     }
                 }
 
                 // Hands is now a global class from the script tag
@@ -415,6 +427,7 @@ function App() {
 
             } catch (err) {
                 console.error("Camera/Hands init failed", err);
+                // Do not throw, just set state
                 setAppState(AppState.ERROR);
             }
         }
