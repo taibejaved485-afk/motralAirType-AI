@@ -54,75 +54,83 @@ function App() {
 
   // Check for first-time user
   useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('airtype_tutorial_seen');
-    if (!hasSeenTutorial) {
-        // Small delay to let app load before showing tutorial
-        setTimeout(() => setTutorialStep(1), 1000);
+    try {
+        const hasSeenTutorial = localStorage.getItem('airtype_tutorial_seen');
+        if (!hasSeenTutorial) {
+            // Small delay to let app load before showing tutorial
+            setTimeout(() => setTutorialStep(1), 1000);
+        }
+    } catch (e) {
+        console.warn("Storage access failed", e);
     }
   }, []);
 
   const completeTutorial = () => {
       setTutorialStep(0);
-      localStorage.setItem('airtype_tutorial_seen', 'true');
+      try { localStorage.setItem('airtype_tutorial_seen', 'true'); } catch(e) {}
       playSound('success');
   };
 
   const skipTutorial = () => {
       setTutorialStep(0);
-      localStorage.setItem('airtype_tutorial_seen', 'true');
+      try { localStorage.setItem('airtype_tutorial_seen', 'true'); } catch(e) {}
   };
 
   // Audio utility
   const playSound = useCallback((type: 'click' | 'success' | 'step') => {
     if (isMuted) return;
 
-    if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioContextRef.current;
-    
-    // Attempt to resume if suspended (requires user interaction previously)
-    if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-    }
-    
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    const now = ctx.currentTime;
-    
-    if (type === 'click') {
-        osc.type = 'triangle'; // Techy sound
-        osc.frequency.setValueAtTime(1200, now);
-        osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+    try {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        const ctx = audioContextRef.current;
         
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        // Attempt to resume if suspended (requires user interaction previously)
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
         
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'success') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(500, now);
-        osc.frequency.linearRampToValueAtTime(1000, now + 0.1);
-        osc.frequency.linearRampToValueAtTime(1500, now + 0.3);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
         
-        osc.start(now);
-        osc.stop(now + 0.5);
-    } else if (type === 'step') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.linearRampToValueAtTime(800, now + 0.1);
-        gain.gain.setValueAtTime(0.02, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
+        const now = ctx.currentTime;
+        
+        if (type === 'click') {
+            osc.type = 'triangle'; // Techy sound
+            osc.frequency.setValueAtTime(1200, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'success') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(500, now);
+            osc.frequency.linearRampToValueAtTime(1000, now + 0.1);
+            osc.frequency.linearRampToValueAtTime(1500, now + 0.3);
+            
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.5);
+            
+            osc.start(now);
+            osc.stop(now + 0.5);
+        } else if (type === 'step') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.linearRampToValueAtTime(800, now + 0.1);
+            gain.gain.setValueAtTime(0.02, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+    } catch (e) {
+        console.warn("Audio playback failed", e);
     }
   }, [isMuted]);
 
@@ -345,29 +353,34 @@ function App() {
     let stream: MediaStream | null = null;
 
     const setupHands = async () => {
-        // Hands is now a global class from the script tag
-        hands = new Hands({
-          locateFile: (file: string) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-          },
-        });
-
-        hands.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
-
-        hands.onResults((results: any) => {
-            if (onResultsRef.current) {
-                onResultsRef.current(results);
-            }
-        });
-
         // Initialize Camera
         if (videoRef.current) {
             try {
+                // Initial check for Hands library availability
+                if (typeof Hands === 'undefined') {
+                    throw new Error("Mediapipe Hands library not loaded. Please check internet connection.");
+                }
+
+                // Hands is now a global class from the script tag
+                hands = new Hands({
+                  locateFile: (file: string) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                  },
+                });
+
+                hands.setOptions({
+                  maxNumHands: 1,
+                  modelComplexity: 1,
+                  minDetectionConfidence: 0.5,
+                  minTrackingConfidence: 0.5,
+                });
+
+                hands.onResults((results: any) => {
+                    if (onResultsRef.current) {
+                        onResultsRef.current(results);
+                    }
+                });
+
                 const constraints = {
                     video: {
                         width: { ideal: 1280 },
@@ -748,6 +761,7 @@ function App() {
               <div className="border border-red-900/50 p-8 bg-red-950/10 backdrop-blur-md">
                   <h2 className="text-2xl font-bold tracking-widest mb-2">SYSTEM FAILURE</h2>
                   <p className="text-red-400 text-sm">CAMERA MODULE NOT DETECTED</p>
+                  <p className="text-red-800 text-xs mt-2">Check console for details.</p>
               </div>
           </div>
       )}
