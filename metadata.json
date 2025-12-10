@@ -1,0 +1,8 @@
+{
+  "name": "motralAirType AI",
+  "description": "A touchless virtual keyboard powered by hand tracking and Gemini AI. Type in the air using gestures.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
